@@ -30,5 +30,6 @@ extern double deltaYLocal;
 extern double deltaYGlobal;
 extern double FrontLeftPower;
 extern double yVector;
+extern double xVector;
 extern double targetAC;
 #endif

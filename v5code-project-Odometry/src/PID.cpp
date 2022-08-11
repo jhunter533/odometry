@@ -56,7 +56,7 @@ void driveToNS() {
   drivePID.kD = 0.001;
 
   drivePID.kP = 0.035;
-
+//before when turn pid was custom angle this was the same is the issue of not reaching taget caused by creating a vector magnitude but no angle attached
   drivePID.error = sqrt((yTargetLocation - yPosGlobal)*(yTargetLocation-yPosGlobal)+(xTargetLocation-xPosGlobal)*(xTargetLocation-xPosGlobal));
 
   drivePID.derivative = drivePID.error - drivePID.prevError;
@@ -72,12 +72,8 @@ void driveToNS() {
 
   drivePID.powerDrive =((drivePID.error * drivePID.kP) + (drivePID.derivative * drivePID.kD) + (drivePID.integral *drivePID.kI));
   
-  if (drivePID.powerDrive > drivePID.maxSpeed) {
-    drivePID.powerDrive = drivePID.maxSpeed;
-  } else if (drivePID.powerDrive < -drivePID.maxSpeed) {
-    drivePID.powerDrive = -drivePID.maxSpeed;
   }
-}
+
 
 
 void strafeTo() {
@@ -121,8 +117,9 @@ void turnTo() {
   turnPID.kI = 0.0025;
 
   turnPID.kD = 0.9;
+//do i need -absolute angle or is it unesscary
 
-  turnPID.error = (targetAC-absoluteAngle);
+  turnPID.error = (atan2(yVector,xVector))-absoluteAngle;//(targetAC-absoluteAngle);
   //ShortAngle();
   
   /*

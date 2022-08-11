@@ -4,72 +4,90 @@
 #include "Conversion.h"
 #include "PID.h"
 #include "oldPID.h"
+#include "Graphics.h"
 
+///intiate variables///
+//power for each motor
+double FrontLeftPower;
+double BackLeftPower;
+double FrontRightPower;
+double BackRightPower;
 
-motor_group LeftDriveSmart = motor_group(FrontLeft, BackLeft);
-motor_group FRBLStrafe = motor_group(FrontRight,BackLeft);
-motor_group FLBRStrafe = motor_group(FrontLeft,BackRight);
-motor_group RightDriveSmart = motor_group(FrontRight, BackRight);
+//start angle in radians
+//no longer used in this version
+double startAngle = M_PI/2;
 
-smartdrive Drivetrain = smartdrive(LeftDriveSmart, RightDriveSmart, TurnGyroSmart, 319.19, 320, 40, mm, 1);
-
-    double FrontLeftPower;
-    double BackLeftPower;
-    double FrontRightPower;
-    double BackRightPower;
-//double head = TurnGyroSmart.heading(deg);
-//double testEnc = Right.rotation(deg);
-double startAngle = pi/2;
-//pi/2
-//double startPosX=(1*360*M_PI)/(M_PI*3.25*180);
-//double startPosY = (1*360*M_PI)/(M_PI*3.25*180);
+// starting position coordinates
+//convert inputed inches from 0,0(bottom left corner) to degrees
 double startPosX=(2*360)/(M_PI*3.25);
 double startPosY = (2*360)/(M_PI*3.25);
 
+//starting position coordinates in inches
+//not used in current version
+//double startPosX=(2);
+//double startPosY = (2);
+
+//distance from tracking wheel to tracking center
+//converted to degrees
 double sDist = (5*360)/(M_PI*3.25);
 double rDist = (6*360)/(M_PI*3.25);
-double eTicks = 360;
+
+//distance from track wheels in inches
+//not used in current version
+//double sDist = (5);
+//double rDist = (6);
+
+//Diameter of tracking wheels
 double wheelDiameter = 3.25;
 
+//previous encoder values (deg)
 float prevR = 0;
 float prevS = 0;
 
-double absoluteAngle = 0;
-double prevTheta = 0;
+//double absoluteAngle=startAngle;
+//absolute angle is inertial heading converted to radians
+double absoluteAngle = ConvertToRadians(TurnGyroSmart.heading());
+//previous heading
+double prevTheta = absoluteAngle;
 double totalDeltaDistR = 0;
+
+//global position coordinates
 double yPosGlobal = startPosY;
 double xPosGlobal = startPosX;
+//change in theta
 double deltaTheta = 0;
 double halfAngle = deltaTheta/2;
 double avgTheta = absoluteAngle +halfAngle;
+//change in x and y coordinates
 double deltaXGlobal = 0;
 double deltaYGlobal = 0;
 
+//the total local change in position from one coordinate to the next
 double deltaXLocal = 0;
 double deltaYLocal = 0;
 double r = 0;
 double r2 = 0;
 
-
+//turn offset
+double tOX=0;
+double tOY=0;
 bool chassisControl= false;
+
+//target values for calling function
 double xTargetLocation = xPosGlobal;
 double yTargetLocation = yPosGlobal;
 double targetFacA = 0;
 double targetAC =0;
 
+//amount between current and target values
 double xVector = 0;
 double yVector = 0;
 double hAngle = 0;
 
+//amount of change in encoders
 double deltaR = 0;
 double deltaS = 0;
-//int head = TurnGyroSmart.heading(degrees);
 
-double distToX = 0;
-double distToY = 0;
-double avgThetaR = ConvertToRadians(absoluteAngle);
-double deltaYGlobalD = ConvertToDeg(deltaYGlobal);
-double deltaXGlobalD = ConvertToDeg(deltaXGlobal);
 float rEnc = Right.rotation(deg);
 float sEnc = Back.rotation(deg);
 
@@ -77,98 +95,125 @@ int trackPosition() {
   
   
   while(1) {
-//double turnOffsetx = 360*(sDist*deltaTheta*2)/wheelDiameter;
-//double turnOffsety = 360*(rDist*deltaTheta*2)/wheelDiameter;
 
-  deltaR = ((Right.rotation(deg)-prevR));//*wheelDiameter/2);
-  deltaS = ((Back.rotation(deg)- prevS));//*wheelDiameter/2);
-  //double deltaR = (((Right.rotation(deg)-turnOffsety)-prevR) *pi/180);
-  //double deltaS = (((Back.rotation(deg)-turnOffsetx)- prevS) *pi/180);
-//is this the issue
-//change to int? idk however I can to store variable.
-  prevR = Right.rotation(deg);
-  prevS = Back.rotation(deg);
- // double prevTOffsetX = turnOffsetx;
-  //double prevTOffsetY = turnOffsety;
+    //double turnOffsetx = 360*(sDist*deltaTheta*2)/wheelDiameter;
+    //double turnOffsety = 360*(rDist*deltaTheta*2)/wheelDiameter;
+    double arc=ConvertToDeg(deltaTheta)/360*(M_PI*18);
+    double turnOffsetx = (arc*360/(M_PI*3.25));
+    double turnOffsety = (arc*360/(M_PI*3.25));
+    printf( "      \n");
+    printf( "xPos %.5f\n", xPosGlobal);
+    printf( "yPos %.5f\n", yPosGlobal);
+    printf( "dYG %.5f\n", deltaYGlobal);
+    printf( "dxg %.5f\n", deltaXGlobal);
+    printf( "dxL %.5f\n", deltaXLocal);
+    printf( "dyl %.5f\n", deltaYLocal);
+    printf( "turnxoff %.5f\n", turnOffsetx);
+    printf( "turnyoff %.5f\n", turnOffsety);
+    printf( "rightEnc %.5f\n", Right.rotation(deg));
+    printf( "backenc %.5f\n", Back.rotation(deg));
+    tOX=turnOffsetx;
+    tOY=turnOffsety;
+    printf( "tox %.5f\n", tOX);
+    printf( "toy %.5f\n", tOY);
+    //prev used ones in deg
+    deltaR = ((Right.rotation(deg)-prevR))+tOY;
+    deltaS = ((Back.rotation(deg)- prevS))-tOX;
 
-  totalDeltaDistR += deltaR;
-  if (TurnGyroSmart.heading() == 0) {
-    //absoluteAngle = ConvertToRadians(fmod(-360+90,360));
-    absoluteAngle=ConvertToRadians(TurnGyroSmart.heading());
-     //absoluteAngle = (fmod((-360+90),360));
-  } else {
-    absoluteAngle=ConvertToRadians(TurnGyroSmart.heading());
-  //absoluteAngle = ConvertToRadians(fmod((-TurnGyroSmart.heading()+90),360));
-   //absoluteAngle = fmod((-(TurnGyroSmart.heading()+90),360);
-//absoluteAngle = trunc(fmod(TurnGyroSmart.heading() * -1 + 90,360));
-  }
-  if (absoluteAngle <0) {
-    absoluteAngle+=2*M_PI;
-  }
-  if (absoluteAngle >360) {
-    absoluteAngle-=2*M_PI;
-  }
+    //deltaR = ((Right.rotation(deg)-prevR)*wheelDiameter*M_PI)/360;
+    //deltaS = ((Back.rotation(deg)- prevS)*wheelDiameter*M_PI)/360;
 
-  deltaTheta = absoluteAngle - prevTheta;
 
-  prevTheta = absoluteAngle;
 
-  if ((deltaTheta) ==0) {
-    deltaXLocal = (deltaS);
-    deltaYLocal = (deltaR);
+    //deltaR = ((Right.rotation(deg)+tOY-prevR));//*wheelDiameter/2);
+    //deltaS = ((Back.rotation(deg)-tOX- prevS));//*wheelDiameter/2);
+    //double deltaR = (((Right.rotation(deg)-turnOffsety)-prevR) *pi/180);
+    //double deltaS = (((Back.rotation(deg)-turnOffsetx)- prevS) *pi/180);
+    //is this the issue
+    //change to int? idk however I can to store variable.
+    prevR = Right.rotation(deg);
+    prevS = Back.rotation(deg);
+    // double prevTOffsetX = turnOffsetx;
+    //double prevTOffsetY = turnOffsety;
+
+    totalDeltaDistR += deltaR;
+    if (TurnGyroSmart.heading() == 0) {
+      //absoluteAngle = ConvertToRadians(fmod(-360+90,360));
+      //   absoluteAngle=ConvertToRadians(360-TurnGyroSmart.heading());
+      absoluteAngle=ConvertToRadians(TurnGyroSmart.heading());
+      //absoluteAngle = (fmod((-360+90),360));
+
+    } else {
+      absoluteAngle=ConvertToRadians(TurnGyroSmart.heading());
+      //   absoluteAngle=ConvertToRadians(360-TurnGyroSmart.heading());
+
+      //absoluteAngle = ConvertToRadians(fmod((-TurnGyroSmart.heading()+90),360));
+      //absoluteAngle = fmod((-(TurnGyroSmart.heading()+90),360);
+      //absoluteAngle = trunc(fmod(TurnGyroSmart.heading() * -1 + 90,360));
+    }
+    if (absoluteAngle <0) {
+      absoluteAngle+=2*M_PI;
+    }
+    if (absoluteAngle >360) {
+      absoluteAngle-=2*M_PI;
+    }
+
+    deltaTheta = absoluteAngle - prevTheta;
+
+    prevTheta = absoluteAngle;
+
+    if ((deltaTheta) <= .5 && deltaTheta >= -.5) {
+      deltaXLocal = (deltaS);
+      deltaYLocal = (deltaR);
     
-    halfAngle = 0;
+      halfAngle = 0;
     
-  } else {
-    halfAngle = deltaTheta/2;
-    r = deltaR/deltaTheta;
-    r2 = deltaS/deltaTheta;
-deltaXLocal = 2*sin(halfAngle) *(r2+sDist);
-deltaYLocal = 2*sin(halfAngle) * (r+rDist);
-//y = 2sin(half angle * r+rDist)
+    } else {
+      halfAngle = deltaTheta/2;
+      r = deltaR/deltaTheta;
+      r2 = deltaS/deltaTheta;
+      deltaXLocal = 2*sin(halfAngle) *(r2+sDist);
+      deltaYLocal = 2*sin(halfAngle) * (r-rDist);
 
-//what is it
-   // deltaXLocal = 2*sin(ConvertToRadians(halfAngle)) * ConvertToRadians(r2 + sDist);
-    //deltaYLocal = 2*sin(ConvertToRadians(halfAngle)) * ConvertToRadians(r +rDist);
+    }
+    avgTheta = absoluteAngle - halfAngle;
+    //abs - half
+
+
+    //amount of change from global coord
+    //something needs to change with calculating angle
+    //check the sin and all that so when it hasnt moved it = 0 so it isn't adding.
+    //all units are degrees (radial) which means they come out with currect sin.
+    //changing back  to radians because sin is always in radians.
+    //double avgThetaR = (avgTheta);
+
+    double thetaT = atan2(deltaYLocal,deltaXLocal);
+    double radius = sqrt(deltaXLocal*deltaXLocal + deltaYLocal*deltaYLocal);
+    //thetaT -= avgTheta;
+    //deltaXGlobal = radius*cos(thetaT);
+    //deltaYGlobal = radius*sin(thetaT);
+
+    deltaYGlobal=deltaXLocal*sin(absoluteAngle)+deltaYLocal*cos(absoluteAngle);
+    deltaXGlobal=deltaXLocal*cos(absoluteAngle)-deltaYLocal*sin(absoluteAngle);
+    //deltaXGlobal = (deltaXLocal) *cos(avgTheta) - (deltaYLocal) * sin(avgTheta);
+    //xcos - ysin
+    //deltaYGlobal = (deltaYLocal) * cos(avgTheta) + (deltaXLocal) * -sin(avgTheta);
+    //dyg = dyl*cos(avgtheta) +deltaxl(sin(avgtheta))
+
+    //double deltaYGlobalD = ConvertToDeg(deltaYGlobal);
+    //double deltaXGlobalD = ConvertToDeg(deltaXGlobal);
+
+
+    //always adding never stops
+    xPosGlobal += (deltaXGlobal);
+    yPosGlobal += (deltaYGlobal);
+    //Brain.Screen.setCursor(12,12);
+    //Brain.Screen.print("%.5", prevR);
+    draw();
+
+    task::sleep(10);
+
   }
-  avgTheta = absoluteAngle + halfAngle;
-  //abs - half
-
-
-  //amount of change from global coord
-//something needs to change with calculating angle
-//check the sin and all that so when it hasnt moved it = 0 so it isn't adding.
-//all units are degrees (radial) which means they come out with currect sin.
-//changing back  to radians because sin is always in radians.
-//double avgThetaR = (avgTheta);
-
-double thetaT = atan2(deltaYLocal,deltaXLocal);
-double radius = sqrt(deltaXLocal*deltaXLocal + deltaYLocal*deltaYLocal);
-//thetaT -= avgTheta;
-//deltaXGlobal = radius*cos(thetaT);
-//deltaYGlobal = radius*sin(thetaT);
-deltaYGlobal=deltaXLocal*sin(-absoluteAngle)+deltaYLocal*cos(-absoluteAngle);
-deltaXGlobal=deltaXLocal*cos(-absoluteAngle)-deltaYLocal*sin(-absoluteAngle);
-  //deltaXGlobal = (deltaXLocal) *cos(avgTheta) - (deltaYLocal) * sin(avgTheta);
-  //xcos - ysin
-  //deltaYGlobal = (deltaYLocal) * cos(avgTheta) + (deltaXLocal) * -sin(avgTheta);
-  //dyg = dyl*cos(avgtheta) +deltaxl(sin(avgtheta))
-
-//double deltaYGlobalD = ConvertToDeg(deltaYGlobal);
-//double deltaXGlobalD = ConvertToDeg(deltaXGlobal);
-
-
-//always adding never stops
-  xPosGlobal += (deltaXGlobal);
-  yPosGlobal += (deltaYGlobal);
-  //xPosGlobal += deltaXGlobal;
-  //yPosGlobal += deltaYGlobal;
-  //Brain.Screen.setCursor(12,12);
-  //Brain.Screen.print("%.5", prevR);
-
-  task::sleep(10);
-
-}
 return 1;
 }
 
@@ -277,7 +322,80 @@ return 1;
 }
 */
 
+
+
+void driveToP(double xTarget, double yTarget, double targetA) {
+  xTargetLocation = (xTarget*360)/(M_PI*wheelDiameter);
+  yTargetLocation = (yTarget*360)/(M_PI*wheelDiameter);
+  //xTargetLocation=xTarget;
+  //yTargetLocation=yTarget;
+  targetAC=ConvertToRadians(targetA);
+  xVector = xTargetLocation - xPosGlobal;
+  yVector = yTargetLocation - yPosGlobal;
+  double head_Error = absoluteAngle-targetAC;
+  //while(fabs(yVector)>10 ||fabs(xVector)>10 || fabs(head_Error)>10) {
+  while(sqrt(xVector*xVector+yVector*yVector)>10 || (atan2(yVector,xVector))-absoluteAngle >10 ) {
+    // driveTo();
+    driveToNS();
+    turnTo();
+    //strafeTo();
+
+    FrontLeftPower = ((drivePID.powerDrive)/3 -turnPID.powerDrive*5);//+strafePID.powerDrive;
+    BackLeftPower = (drivePID.powerDrive/3-turnPID.powerDrive*5);//-strafePID.powerDrive;
+    FrontRightPower = (drivePID.powerDrive/3 + turnPID.powerDrive*5);//-strafePID.powerDrive;
+    BackRightPower = (drivePID.powerDrive/3 +turnPID.powerDrive*5);//+strafePID.powerDrive;
+    /*
+
+    if ((xTargetLocation<=xPosGlobal-1&&xTargetLocation<=xPosGlobal+1) || (yTargetLocation<=yPosGlobal-1 && yTargetLocation<=yPosGlobal+1)){
+    FrontLeft.spin(forward,-FrontLeftPower,voltageUnits::volt);
+    FrontRight.spin(forward,-FrontRightPower,voltageUnits::volt);
+    BackLeft.spin(forward,-BackLeftPower,voltageUnits::volt);
+    BackRight.spin(forward,-BackRightPower,voltageUnits::volt);
+    } else if ((xTarget>=xPosGlobal+1 && xTarget>=xPosGlobal-1) || (yTargetLocation>=yPosGlobal+1 && yTargetLocation>=yPosGlobal-1)) {
+    FrontLeft.spin(forward,FrontLeftPower,voltageUnits::volt);
+    FrontRight.spin(forward,FrontRightPower,voltageUnits::volt);
+    BackLeft.spin(forward,BackLeftPower,voltageUnits::volt);
+    BackRight.spin(forward,BackRightPower,voltageUnits::volt);
+    } else {
+    break;
+    }
+    */
+
+    FrontLeft.spin(forward,FrontLeftPower,voltageUnits::volt);
+    FrontRight.spin(forward,FrontRightPower,voltageUnits::volt);
+    BackLeft.spin(forward,BackLeftPower,voltageUnits::volt);
+    BackRight.spin(forward,BackRightPower,voltageUnits::volt);
+    //robot turns to fix x in wrong direction since technically that side gets bigger turning left but we want to turn right
+
+    printf( "      \n");
+    printf( "xPos %.5f\n", xPosGlobal);
+    printf( "yPos %.5f\n", yPosGlobal);
+    printf( "dYG %.5f\n", deltaYGlobal);
+    printf( "dxg %.5f\n", deltaXGlobal);
+    printf( "dxL %.5f\n", deltaXLocal);
+    printf( "dyl %.5f\n", deltaYLocal);
+    printf( "dR %.5f\n", deltaR);
+    printf( "ds %.5f\n", deltaS);
+    printf( "prevr %.5f\n", prevR);
+    printf( "ytarget %.5f\n", yTargetLocation);
+    printf( "xtarget %.5f\n", xTargetLocation);
+    printf( "FLP %.5f\n", FrontLeftPower);
+    printf( "FRP %.5f\n",FrontRightPower);
+    printf( "BLP %.5f\n", BackLeftPower);
+    printf( "BRP %.5f\n", BackRightPower);
+    printf( "New Iteration00 \n");
+    printf( "      \n");
+
+    task::sleep(15);
+  }
+
+FrontLeft.stop();
+FrontRight.stop();
+BackRight.stop();
+BackLeft.stop();
+}
 /*
+
   void driveToP(double xTarget, double yTarget, int targetA) {
  xTarget = (xTarget*260*pi)/(pi*wheelDiameter*180);
  yTarget = (yTarget*360*pi)/(pi*wheelDiameter*180);
@@ -472,6 +590,7 @@ if(yVector ==0&& xVector !=0) {
 
 }
 */
+/*
 
 void driveToP(double xTarget, double yTarget, double targetA) {
  xTargetLocation = (xTarget*360)/(M_PI*wheelDiameter);
@@ -501,10 +620,10 @@ int chassisTrack() {
       }
       driveToNS();
       turnTo();
-    FrontLeftPower = ((drivePID.powerDrive) -turnPID.powerDrive);//+strafePID.powerDrive;
-    BackLeftPower = (drivePID.powerDrive-turnPID.powerDrive);//-strafePID.powerDrive;
-    FrontRightPower = (drivePID.powerDrive + turnPID.powerDrive);//-strafePID.powerDrive;
-    BackRightPower = (drivePID.powerDrive +turnPID.powerDrive);//+strafePID.powerDrive;
+    FrontLeftPower = ((drivePID.powerDrive/2) -turnPID.powerDrive);//+strafePID.powerDrive;
+    BackLeftPower = (drivePID.powerDrive/2-turnPID.powerDrive);//-strafePID.powerDrive;
+    FrontRightPower = (drivePID.powerDrive/2 + turnPID.powerDrive);//-strafePID.powerDrive;
+    BackRightPower = (drivePID.powerDrive/2 +turnPID.powerDrive);//+strafePID.powerDrive;
 
     FrontLeft.spin(forward,FrontLeftPower,voltageUnits::volt);
     FrontRight.spin(forward,FrontRightPower,voltageUnits::volt);
@@ -525,6 +644,11 @@ int chassisTrack() {
   }
   return 1;
 }
+
+*/
+
+
+
 
 /*
 int chassisTrack() {

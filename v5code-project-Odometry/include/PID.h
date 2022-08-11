@@ -12,7 +12,7 @@ typedef struct _pid{
   double kI;
   double threshold;
   double iBound;
-  double maxSpeed = 12;
+  double maxSpeed = 8;
 } PID_;
 
 extern PID_ turnPID;
